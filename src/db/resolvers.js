@@ -1,7 +1,9 @@
 import { genSalt, hash, compare } from "bcrypt";
-import { sign, decode, verify } from "jsonwebtoken";
+import { sign, verify } from "jsonwebtoken";
 
-import User from "../models/Usuario";
+import User from "../models/User";
+import Product from "../models/Product";
+import Client from "../models/Client";
 
 const generateToken = (user) => {
 	const { id } = user;
@@ -22,6 +24,10 @@ const findUser = async (email) => {
 	});
 };
 
+const findProduct = async (id) => {
+	return await Product.findById(id);
+};
+
 const resolvers = {
 	Query: {
 		getUser: async (_, { token }) => {
@@ -29,6 +35,20 @@ const resolvers = {
 			const userId = await verify(token, secret);
 
 			return userId;
+		},
+		getProducts: async () => {
+			try {
+				return await Product.find();
+			} catch (error) {
+				console.error(error);
+			}
+		},
+		getProduct: async (_, { id }) => {
+			const product = await findProduct(id);
+
+			if (!product) throw new Error("Producto no encontrado");
+
+			return product;
 		},
 	},
 
@@ -67,6 +87,34 @@ const resolvers = {
 			}
 
 			throw new Error("Usuario ó contraña incorrectos");
+		},
+		newProduct: async (_, { input }) => {
+			try {
+				const newProduct = new Product(input);
+
+				return await newProduct.save();
+			} catch (error) {
+				console.error(error);
+			}
+		},
+		updateProduct: async (_, { id, input }) => {
+			let product = await findProduct(id);
+
+			if (!product) throw new Error("Producto no encontrado");
+
+			product = await Product.findByIdAndUpdate(id, input, { new: true });
+
+			return product;
+		},
+
+		deleteProduct: async (_, { id }) => {
+			const product = await findProduct(id);
+
+			if (!product) throw new Error("Producto no encontrado");
+
+			await Product.findByIdAndDelete(id);
+
+			return "Producto eliminado";
 		},
 	},
 };
