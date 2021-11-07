@@ -24,6 +24,12 @@ const findUser = async (email) => {
 	});
 };
 
+const findClient = async (email) => {
+	return await Client.findOne({
+		email,
+	});
+};
+
 const findProduct = async (id) => {
 	return await Product.findById(id);
 };
@@ -36,6 +42,7 @@ const resolvers = {
 
 			return userId;
 		},
+
 		getProducts: async () => {
 			try {
 				return await Product.find();
@@ -43,12 +50,45 @@ const resolvers = {
 				console.error(error);
 			}
 		},
+
 		getProduct: async (_, { id }) => {
 			const product = await findProduct(id);
 
 			if (!product) throw new Error("Producto no encontrado");
 
 			return product;
+		},
+
+		getClients: async () => {
+			try {
+				return await Client.find();
+			} catch (error) {
+				console.log(error);
+			}
+		},
+
+		getClientsOfTheSeller: async (_, {}, ctx) => {
+			try {
+				return await Client.find({ seller: ctx.user.id.toString() });
+			} catch (error) {
+				console.log(error);
+			}
+		},
+
+		getClient: async (_, { id }, ctx) => {
+			try {
+				const client = await Client.findById(id);
+
+				if (!client) throw new Error("Cliente no encontrado");
+
+				if (client.seller.toString() !== ctx.user.id.toString()) {
+					throw new Error("No tienes el nivel de acceso requerido");
+				}
+
+				return client;
+			} catch (error) {
+				console.log(error);
+			}
 		},
 	},
 
@@ -73,6 +113,7 @@ const resolvers = {
 				console.error(error);
 			}
 		},
+
 		authUser: async (_, { input }) => {
 			const { email, password } = input;
 
@@ -88,6 +129,7 @@ const resolvers = {
 
 			throw new Error("Usuario ó contraña incorrectos");
 		},
+
 		newProduct: async (_, { input }) => {
 			try {
 				const newProduct = new Product(input);
@@ -97,6 +139,7 @@ const resolvers = {
 				console.error(error);
 			}
 		},
+
 		updateProduct: async (_, { id, input }) => {
 			let product = await findProduct(id);
 
@@ -115,6 +158,50 @@ const resolvers = {
 			await Product.findByIdAndDelete(id);
 
 			return "Producto eliminado";
+		},
+
+		newClient: async (_, { input }, ctx) => {
+			const { email } = input;
+
+			const client = await findClient(email);
+
+			if (client) throw new Error("El cliente ya esta registrado");
+
+			const newClient = await Client(input);
+
+			newClient.seller = ctx.user.id;
+
+			return await newClient.save();
+		},
+
+		updateClient: async (_, { id, input }, ctx) => {
+			let client = await Client.findById(id);
+
+			if (!client) throw new Error("El cliente no esta registrado");
+
+			if (client.seller.toString() !== ctx.user.id.toString()) {
+				throw new Error("No tienes el nivel de acceso requerido");
+			}
+
+			client = await Client.findByIdAndUpdate(id, input, {
+				new: true,
+			});
+
+			return client;
+		},
+
+		deleteClient: async (_, { id, input }, ctx) => {
+			let client = await Client.findById(id);
+
+			if (!client) throw new Error("El cliente no esta registrado");
+
+			if (client.seller.toString() !== ctx.user.id.toString()) {
+				throw new Error("No tienes el nivel de acceso requerido");
+			}
+
+			await Client.findOneAndDelete({ _id: id });
+
+			return "Cliente Eliminado";
 		},
 	},
 };

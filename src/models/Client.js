@@ -33,7 +33,7 @@ const ClientsSchema = Schema({
 		type: Date,
 		default: Date.now(),
 	},
-	vendedor: {
+	seller: {
 		type: Types.ObjectId,
 		require: true,
 		ref: User.name,
