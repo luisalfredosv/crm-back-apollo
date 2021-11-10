@@ -4,6 +4,7 @@ import { sign, verify } from "jsonwebtoken";
 import User from "../models/User";
 import Product from "../models/Product";
 import Client from "../models/Client";
+import Order from "../models/Order";
 
 const generateToken = (user) => {
 	const { id } = user;
@@ -89,6 +90,45 @@ const resolvers = {
 			} catch (error) {
 				console.log(error);
 			}
+		},
+
+		getOrders: async () => {
+			try {
+				return await Order.find();
+			} catch (error) {
+				console.log(error);
+			}
+		},
+
+		getOrdersOfTheSeller: async (_, {}, ctx) => {
+			try {
+				return await Order.find({
+					seller: ctx.user.id.toString(),
+				});
+			} catch (error) {
+				console.log(error);
+			}
+		},
+
+		getOrder: async (_, { id }, ctx) => {
+			try {
+				const order = await Order.findById(id);
+
+				if (!order) throw new Error("Pedido no encontrad");
+
+				if (order.seller.toString() !== ctx.user.id.toString()) {
+					throw new Error("No tienes las crendenciales");
+				}
+
+				return order;
+			} catch (error) {}
+		},
+
+		getOrderByStatus: async (_, { status }, ctx) => {
+			return await Order.find({
+				seller: ctx.user.id.toString(),
+				status,
+			});
 		},
 	},
 
@@ -202,6 +242,77 @@ const resolvers = {
 			await Client.findOneAndDelete({ _id: id });
 
 			return "Cliente Eliminado";
+		},
+
+		newOrder: async (_, { id, input }, ctx) => {
+			const { client, order } = input;
+			const IsClient = await Client.findById(client);
+
+			if (!IsClient) throw new Error("El cliente no esta registrado");
+
+			if (IsClient.seller.toString() !== ctx.user.id.toString()) {
+				throw new Error("No tienes el nivel de acceso requerido");
+			}
+
+			for await (const item of order) {
+				const { id } = item;
+				const product = await Product.findById(id);
+
+				if (item.quantity > product.stock) {
+					throw new Error(
+						`El articulo ${product.name} excede la cantidad disponible`
+					);
+				}
+			}
+		},
+
+		updateOrder: async (_, { id, input }, ctx) => {
+			const { client } = input;
+
+			const order = await Order.findById(id);
+
+			if (!order) throw new Error("El pedido no existe");
+
+			const isClient = await Client.findById(client);
+
+			if (!isClient) throw new Error("El cliente no esta registrado");
+
+			if (isClient.seller.toString() !== ctx.user.id.toString()) {
+				throw new Error("No tienes el nivel de acceso requerido");
+			}
+
+			for await (const item of input.order) {
+				const { id } = item;
+
+				const product = await Product.findById(id);
+
+				if (articulo.quantity > product.stock) {
+					throw new Error(
+						`El articulo ${product.name} excede la cantidad disponible`
+					);
+				} else {
+					product.stock = product.stock - articulo.quantity;
+
+					await product.save();
+				}
+			}
+
+			return await Order.findOneAndUpdate(id, input, { new: true });
+		},
+		deleteOrder: async (_, { id }, ctx) => {
+			const order = await Order.findById(id);
+
+			if (order) throw new Error("El pedido no existe");
+
+			if (order.seller.toString() !== ctx.user.id.toString()) {
+				throw new Error("No tienes el nivel de acceso requerido");
+			}
+
+			await Order.findOneAndDelete({
+				_id: id,
+			});
+
+			return "Pedido eliminado";
 		},
 	},
 };
