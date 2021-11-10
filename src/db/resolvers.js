@@ -130,6 +130,82 @@ const resolvers = {
 				status,
 			});
 		},
+
+		getTopClients: async () => {
+			return await Order.aggregate([
+				{
+					$match: {
+						status: "COMPLETADO",
+					},
+				},
+				{
+					$group: {
+						_id: "$client",
+						total: {
+							$sum: "$total",
+						},
+					},
+				},
+				{
+					$lookup: {
+						from: "clients",
+						localField: "_id",
+						foreignField: "_id",
+						as: "client",
+					},
+				},
+				{
+					$limit: 10,
+				},
+				{
+					$sort: {
+						total: -1,
+					},
+				},
+			]);
+		},
+
+		getTopSeller: async () => {
+			return await Order.aggregate([
+				{
+					$match: {
+						status: "COMPLETADO",
+					},
+				},
+				{
+					$group: {
+						_id: "seller",
+						total: {
+							$sum: "$total",
+						},
+					},
+				},
+				{
+					$lookup: {
+						from: "Users",
+						localField: "_id",
+						foreignField: "_id",
+						as: "seller",
+					},
+				},
+				{
+					$limit: 3,
+				},
+				{
+					$sort: {
+						total: -1,
+					},
+				},
+			]);
+		},
+
+		searchProduct: async (_, { text }) => {
+			return await Product.find({
+				$text: {
+					$search: text,
+				},
+			}).limit(10);
+		},
 	},
 
 	Mutation: {

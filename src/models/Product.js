@@ -22,4 +22,6 @@ const ProductsSchema = Schema({
 	},
 });
 
+ProductsSchema.index({ name: "text" });
+
 export default model("Products", ProductsSchema);
